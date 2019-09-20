@@ -77,6 +77,7 @@ CONTAINS
       ALLOCATE (moves%avbmc_outin)
       ALLOCATE (moves%avbmc_outout)
       ALLOCATE (moves%swap)
+      ALLOCATE (moves%switch)
       ALLOCATE (moves%Quickstep)
 ! set all the counters equal to zero
       moves%bias_bond%attempts=0
@@ -137,6 +138,9 @@ CONTAINS
       moves%swap%attempts=0
       moves%swap%successes=0
       moves%swap%qsuccesses=0
+      moves%switch%attempts=0
+      moves%switch%successes=0
+      moves%switch%qsuccesses=0
       moves%Quickstep%attempts=0
       moves%Quickstep%successes=0
       moves%Quickstep%qsuccesses=0
@@ -195,6 +199,7 @@ CONTAINS
       DEALLOCATE (moves%avbmc_outin)
       DEALLOCATE (moves%avbmc_outout)
       DEALLOCATE (moves%swap)
+      DEALLOCATE (moves%switch)
       DEALLOCATE (moves%Quickstep)
 
       DEALLOCATE (moves)
@@ -380,6 +385,8 @@ SUBROUTINE write_move_stats(moves,nnstep,unit)
       moves%rot%successes,moves%rot%attempts
     WRITE(unit,1000) nnstep,' swap      ',&
       moves%swap%successes,moves%swap%attempts
+    WRITE(unit,1000) nnstep,' switch      ',&
+      moves%switch%successes,moves%switch%attempts
     WRITE(unit,1001) nnstep,' grown     ',&
       moves%grown
     WRITE(unit,1001) nnstep,' empty_swap     ',&

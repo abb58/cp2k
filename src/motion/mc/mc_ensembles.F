@@ -63,7 +63,8 @@ MODULE mc_ensembles
                                               mc_hmc_move,&
                                               mc_molecule_rotation,&
                                               mc_molecule_translation,&
-                                              mc_volume_move
+                                              mc_volume_move,&
+                                              mc_switch_move
    USE mc_types,                        ONLY: get_mc_molecule_info,&
                                               get_mc_par,&
                                               mc_averages_p_type,&
@@ -139,7 +140,7 @@ CONTAINS
          handle, ibox, idum, imol_type, imolecule, imove, iparticle, iprint, itype, iunit, &
          iuptrans, iupvolume, iw, jbox, jdum, molecule_type, molecule_type_swap, &
          molecule_type_target, nchain_total, nmol_types, nmoves, nnstep, nstart, nstep, source, &
-         start_atom, start_atom_swap, start_atom_target, start_mol
+         start_atom, start_atom_swap, start_atom_target, start_mol, start_atom_1, start_atom_2
       CHARACTER(LEN=default_string_length)               :: unit_str
       CHARACTER(LEN=40), DIMENSION(1:nboxes)             :: cell_file, coords_file, data_file, &
                                                             displacement_file, energy_file, &
@@ -152,7 +153,7 @@ CONTAINS
                                                             pmtrans_mol, pmvol_box
       REAL(dp), DIMENSION(:, :), POINTER                 :: conf_prob, mass
       REAL(KIND=dp)                                      :: discrete_step, pmavbmc, pmcltrans, &
-                                                            pmhmc, pmswap, pmtraion, pmtrans, &
+                                                            pmhmc, pmswap, pmswitch, pmtraion, pmtrans, &
                                                             pmvolume, rand, test_energy, unit_conv
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: r_temp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: r_old
@@ -211,7 +212,7 @@ CONTAINS
                       cell_file=cell_file(1), coords_file=coords_file(1), &
                       energy_file=energy_file(1), displacement_file=displacement_file(1), &
                       lstop=lstop, nstep=nstep, nstart=nstart, pmvolume=pmvolume, pmhmc=pmhmc, &
-                      molecules_file=molecules_file(1), pmswap=pmswap, nmoves=nmoves, &
+                      molecules_file=molecules_file(1), pmswap=pmswap, pmswitch=pmswitch, nmoves=nmoves, &
                       pmtraion=pmtraion, pmtrans=pmtrans, pmcltrans=pmcltrans, iuptrans=iuptrans, &
                       iupvolume=iupvolume, ldiscrete=ldiscrete, pmtraion_mol=pmtraion_mol, &
                       lbias=lbias, iprint=iprint, pmavbmc_mol=pmavbmc_mol, &
@@ -448,7 +449,34 @@ CONTAINS
          ! broadcast the random number, to make sure we're on the same move
          CALL mp_bcast(rand, source, group)
 
-         IF (rand .LT. pmvolume) THEN
+       IF (rand .LT. pmswitch) THEN
+
+         ! try an identity switch move
+         IF(MOD(nnstep,iprint) == 0 .AND. (iw>0)) THEN
+            WRITE(iw,*) "Attempting a switch move"
+            WRITE(iw,*)
+         ENDIF
+
+         ! First, we need to pick two different atoms
+         IF (ionode) THEN
+           molecule_type = 1
+           CALL find_mc_test_molecule(mc_molecule_info,&
+               start_atom_1,idum,idum,rng_stream,&
+               molecule_type_old=molecule_type)
+           molecule_type = 2
+           CALL find_mc_test_molecule(mc_molecule_info,&
+               start_atom_2,idum,idum,rng_stream,&
+               molecule_type_old=molecule_type)
+         ENDIF
+         CALL mp_bcast(start_atom_1,source,group)
+         CALL mp_bcast(start_atom_2,source,group)
+
+         CALL mc_switch_move(mc_par(1)%mc_par,force_env(1)%force_env,&
+              moves(1,1)%moves,move_updates(1,1)%moves,&
+              old_energy(1),energy_check(1),r_old(:,:,1),&
+              start_atom_1,start_atom_2,rng_stream)
+
+         ELSEIF (rand .LT. pmvolume) THEN
 
             IF (MOD(nnstep, iprint) == 0 .AND. (iw > 0)) THEN
                WRITE (iw, *) "Attempting a volume move"

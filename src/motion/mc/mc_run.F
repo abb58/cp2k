@@ -365,7 +365,7 @@ CONTAINS
                                                             nmoves, nstep, nswapmoves
       INTEGER, DIMENSION(:), POINTER                     :: avbmc_atom
       LOGICAL                                            :: lbias, lrestart, lstop
-      REAL(dp)                                           :: BETA, pmswap, pmtraion, pmtrans, &
+      REAL(dp)                                           :: BETA, pmswitch, pmswap, pmtraion, pmtrans, &
                                                             pmvolume, pressure, rcut, temperature
       REAL(dp), DIMENSION(:), POINTER                    :: avbmc_rmax, avbmc_rmin, pbias, &
                                                             pmavbmc_mol, pmrot_mol, pmswap_mol, &
@@ -380,13 +380,13 @@ CONTAINS
             'lrestart'
          WRITE (iw, '( A,A )') 'pmtraion_mol,pmtrans_mol,pmrot_mol,pmswap_mol,', &
             'avbmc_atom'
-         WRITE (iw, '( A,A )') 'avbmc_rmin,avmbc_rmax,pmavbmc_mol,pbias,pmswap'
+         WRITE (iw, '( A,A )') 'avbmc_rmin,avmbc_rmax,pmavbmc_mol,pbias,pmswap,pmswitch'
       ENDIF
 
       CALL get_mc_par(mc_par(1)%mc_par, nstep=nstep, iupvolume=iupvolume, iupcltrans=iupcltrans, &
                       iuptrans=iuptrans, nmoves=nmoves, nswapmoves=nswapmoves, &
                       iprint=iprint, lbias=lbias, lstop=lstop, temperature=temperature, &
-                      pressure=pressure, pmswap=pmswap, pmvolume=pmvolume, &
+                      pressure=pressure, pmswitch=pmswitch, pmswap=pmswap, pmvolume=pmvolume, &
                       pmtraion=pmtraion, pmtrans=pmtrans, BETA=BETA, rcut=rcut, &
                       lrestart=lrestart, pmtraion_mol=pmtraion_mol, pmtrans_mol=pmtrans_mol, &
                       pmrot_mol=pmrot_mol, pmswap_mol=pmswap_mol, avbmc_atom=avbmc_atom, &
@@ -395,7 +395,7 @@ CONTAINS
       CALL set_mc_par(mc_par(2)%mc_par, nstep=nstep, iupvolume=iupvolume, iupcltrans=iupcltrans, &
                       iuptrans=iuptrans, nmoves=nmoves, nswapmoves=nswapmoves, &
                       iprint=iprint, lbias=lbias, lstop=lstop, temperature=temperature, &
-                      pressure=pressure, pmswap=pmswap, pmvolume=pmvolume, &
+                      pressure=pressure, pmswitch=pmswitch, pmswap=pmswap, pmvolume=pmvolume, &
                       pmtraion=pmtraion, pmtrans=pmtrans, BETA=BETA, rcut=rcut, &
                       lrestart=lrestart, pmtraion_mol=pmtraion_mol, pmtrans_mol=pmtrans_mol, &
                       pmrot_mol=pmrot_mol, pmswap_mol=pmswap_mol, avbmc_atom=avbmc_atom, &

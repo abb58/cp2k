@@ -487,6 +487,13 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, name="PMSWITCH",&
+                          description="The probability of attempting an identity switch move.", &
+                          usage="PMSWITCH {real}", &
+                          type_of_var=real_t, default_r_val=0.0E0_dp)
+      CALL section_add_keyword(section,keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, __LOCATION__, name="PMSWAP", &
                           description="The probability of attempting a swap move.", &
                           usage="PMSWAP {real}", &

@@ -70,7 +70,7 @@ MODULE mc_moves
 
    PUBLIC :: mc_conformation_change, mc_molecule_translation, &
              mc_molecule_rotation, mc_volume_move, mc_avbmc_move, &
-             mc_hmc_move, mc_cluster_translation
+             mc_hmc_move, mc_cluster_translation, mc_switch_move
 
 CONTAINS
 
@@ -2724,5 +2724,138 @@ CONTAINS
 
    END SUBROUTINE mc_cluster_translation
 
+! *****************************************************************************
+!> \brief performs a switch of two atoms
+!> \param mc_par the mc parameters for the force env
+!> \param force_env the force environment whose cell we're changing
+!> \param moves the structure that keeps track of how many moves have been
+!>               accepted/rejected
+!> \param move_updates the structure that keeps track of how many moves have
+!>               been accepted/rejected since the last time the displacements
+!>               were updated
+!> \param old_energy the energy of the last accepted move involving an
+!>                    unbiased calculation
+!> \param energy_check the running total of how much the energy has changed
+!>                      since the initial configuration
+!> \param r_old the coordinates of the last accepted move involving an
+!>               unbiased calculation
+!> \param rng_stream the random number stream that we draw from
+!> \param error the cp error type
+!>
+!> \author EOF
+!> \note     Designed for parallel use.
+! *****************************************************************************
+
+  SUBROUTINE mc_switch_move (mc_par,force_env,moves,move_updates,&
+                        old_energy,energy_check,r_old,&
+                        start_atom_1,start_atom_2,rng_stream)
+
+    TYPE(mc_simpar_type), POINTER            :: mc_par
+    TYPE(force_env_type), POINTER            :: force_env
+    TYPE(mc_moves_type), POINTER             :: moves, move_updates
+    TYPE(cp_subsys_type), POINTER            :: subsys
+    TYPE(mc_molecule_info_type), POINTER     :: mc_molecule_info
+    TYPE(particle_list_type), POINTER        :: particles
+    TYPE(rng_stream_type), POINTER           :: rng_stream
+
+    INTEGER, INTENT(IN)                      :: start_atom_1,start_atom_2
+    REAL(KIND=dp), INTENT(INOUT)             :: old_energy,energy_check
+
+    CHARACTER(len=*), PARAMETER :: routineN = 'mc_switch', &
+      routineP = moduleN//':'//routineN
+
+    REAL(KIND=dp), DIMENSION(:, :), &
+      INTENT(INOUT)                          :: r_old
+
+    REAL(KIND=dp), ALLOCATABLE, &
+      DIMENSION(:, :)                        :: r
+
+    REAL(KIND=dp)                            :: new_energy, value, w, BETA,&
+                                                rand, exp_max_val, exp_min_val
+    INTEGER                                  :: group, handle,&
+                                                source, istat
+    LOGICAL                                  :: ionode
+
+! begin the timing of the subroutine                                                
+      CALL timeset(routineN,handle)
+
+! nullify some pointers
+      NULLIFY(particles,subsys)
+
+! do some allocation
+      ALLOCATE (r(1:3,1:2))
+
+! get a bunch of stuff from mc_par
+      CALL get_mc_par(mc_par,mc_molecule_info=mc_molecule_info,&
+         BETA=BETA,exp_max_val=exp_max_val,&
+         exp_min_val=exp_min_val,group=group,source=source,ionode=ionode)
+      CALL get_mc_molecule_info(mc_molecule_info)
+
+! record the attempt
+      moves%switch%attempts=moves%switch%attempts+1
+      move_updates%switch%attempts=move_updates%switch%attempts+1
+
+! grab the coordinates
+      CALL force_env_get(force_env,subsys=subsys)
+      CALL cp_subsys_get(subsys,particles=particles)
+
+! save the coordinates
+      r(1:3,1)=particles%els(start_atom_1)%r(1:3)
+      r(1:3,2)=particles%els(start_atom_2)%r(1:3)
+
+! exchange the coordinates
+      particles%els(start_atom_1)%r(1:3)=r(1:3,2)
+      particles%els(start_atom_2)%r(1:3)=r(1:3,1)
+
+! calculate new energy
+      CALL force_env_calc_energy_force(force_env,&
+               calc_force=.FALSE.)
+      CALL force_env_get(force_env,&
+               potential_energy=new_energy)
+
+      value = -BETA*(new_energy-old_energy)
+      IF    (value .GT. exp_max_val) THEN
+         w=10.0_dp
+      ELSEIF(value .LT. exp_min_val) THEN
+         w=0.0_dp
+      ELSE
+         w=EXP(value)
+      ENDIF
+
+      IF ( w .GE. 1.0E0_dp ) THEN
+         w=1.0E0_dp
+         rand=0.0E0_dp
+      ELSE
+         IF(ionode) rand=next_random_number(rng_stream)
+         CALL mp_bcast(rand,source,group)
+      ENDIF
+
+      IF (rand .LT. w) THEN
+
+! accept the move
+         moves%switch%successes=moves%switch%successes+1
+         move_updates%switch%successes=move_updates%switch%successes+1
+
+! update energies
+         energy_check=energy_check+(new_energy-old_energy)
+         old_energy=new_energy
+
+         r_old(1:3,start_atom_1)=particles%els(start_atom_1)%r(1:3)
+         r_old(1:3,start_atom_2)=particles%els(start_atom_2)%r(1:3)
+      ELSE
+
+! reset the coordinates
+         particles%els(start_atom_1)%r(1:3)=r(1:3,1)
+         particles%els(start_atom_2)%r(1:3)=r(1:3,2)
+
+      ENDIF
+
+! deallocate some stuff
+      DEALLOCATE(r)
+
+! end the timing
+      CALL timestop(handle)
+
+  END SUBROUTINE mc_switch_move
 END MODULE mc_moves
 
